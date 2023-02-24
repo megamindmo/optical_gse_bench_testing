@@ -1,6 +1,14 @@
 import PySimpleGUI as sg
 import tkinter as tk
 import time
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import numpy as np
+from camera_scripts.center_of_beam import main_gen
+
+class Toolbar(NavigationToolbar2Tk):
+    def __init__(self, *args, **kwargs):
+        super(Toolbar, self).__init__(*args, **kwargs)
 
 
 class ExperimentDisplay:
@@ -11,6 +19,11 @@ class ExperimentDisplay:
         self.quad_cell = quadcell
         
         self.left_column = [
+            [sg.B('Plot'), sg.B('Exit')],
+            [sg.Canvas(key='fig_cv',
+                       # it's important that you set this size
+                       size=(400 * 2, 400)
+                       )],
             [sg.Image(filename='image1.png',key="-CAMERA-")], 
             [sg.Image(filename='image1.png',key="-QUADCELL-")]
             ]
@@ -19,6 +32,8 @@ class ExperimentDisplay:
             [sg.Text('Position 1'), sg.InputText(size=(25, 1), enable_events=True, key="-POS1-")],
             [sg.Text('Position 2'), sg.InputText(size=(25, 1), enable_events=True, key="-POS2-")],
             [sg.Button('Set Custom Position'), sg.Button('Cross Mode'), sg.Button('Home'), sg.Button('Zero')],
+            [sg.Canvas(key='controls_cv')],
+
             [sg.Text('Status'),sg.Text('NONE', key='MOTORSTATUS' )],
             [sg.Text('Offset of Centroid on Camera dx,dy'),sg.Text('NONE', key='LASER_CENTROID' )],
             [sg.Text('Offset of Centroid on Quad dx,dy'),sg.Text('NONE', key='LASER_CENTROID' )],
@@ -38,14 +53,27 @@ class ExperimentDisplay:
         self.camera_state = []
         self.quad_cell_state = []
         self.zaber_state = []
-    
-    def event_handler(self, event):
+
+    def draw_figure_w_toolbar(self,canvas, fig, canvas_toolbar):
+        if canvas.children:
+            for child in canvas.winfo_children():
+                child.destroy()
+        if canvas_toolbar.children:
+            for child in canvas_toolbar.winfo_children():
+                child.destroy()
+        figure_canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
+        figure_canvas_agg.draw()
+        toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
+        toolbar.update()
+        figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
+
+    def event_handler(self, event,values):
         print("event handling")
         self.window['MOTORSTATUS'].update(event)
-        print(self.window['-POS1-'])
+        print()
         match event:
             case 'Set Custom Position':
-                self.zaber_post(event,(self.window['-POS1-'].Get,self.window['-POS2-'].Get))
+                self.zaber_post(event,(int(values['-POS1-']),int(values['-POS2-'])))
             case 'Cross Mode':
                 self.zaber_post(event,[])
             case 'Home':
@@ -80,12 +108,31 @@ class ExperimentDisplay:
     
     def quad_cell_get(self):
         return 0
+    def draw(self):
+        plt.figure(1)
+        fig = plt.gcf()
+        DPI = fig.get_dpi()
+        # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
+        fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
+        # -------------------------------
+        x = np.linspace(0, 2 * np.pi)
+        y = np.sin(x)
+        plt.plot(x, y)
+        plt.title('y=sin(x)')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.grid()
+        return fig
+
+
         
     def launch(self,):
         event, values = self.window.read()
         if event == sg.WIN_CLOSED:
             self.end()
-        self.event_handler(event)
+        elif event == 'Plot':
+            self.draw_figure_w_toolbar(self.window['fig_cv'].TKCanvas, main_gen(), self.window['controls_cv'].TKCanvas)
+        self.event_handler(event,values)
         self.camera_get()
         self.zaber_get()
         self.quad_cell_get()

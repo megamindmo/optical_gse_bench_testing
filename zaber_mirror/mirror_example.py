@@ -6,15 +6,21 @@ import time
 #use ls /dev | grep -E 'ttyUSB|ttyACM' when device is connected to find
 #which port. 
 class ZaberMirror:
-  def __init__(self):
-    self.connection = Connection.open_serial_port("/dev/ttyUSB0")
+  def __init__(self, connect):
+    self.connection = connect
     device_list = self.connection.detect_devices()
     print("Found {} devices".format(len(device_list)))
     self.elevation_device = device_list[0]
-    self.horizontal_device = device_list[1] 
+    self.horizontal_device = device_list[1]
+    self.horizontal_device.move_absolute(0)
+    self.elevation_device.move_absolute(0)
+    self.elevation_device.generic_command(CommandCode.SET_TARGET_SPEED,1000)
+    self.horizontal_device.generic_command(CommandCode.SET_TARGET_SPEED,1000) 
+    return
   
   def zero(self):
-    self.connection.generic_command(0,CommandCode.MOVE_ABSOLUTE,0,100)
+    print('zero')
+    self.diag_move_absolute(0,0)
   
   def home(self):
     self.elevation_device.home()
@@ -40,7 +46,7 @@ class ZaberMirror:
     angular_mrad = 1000*math.atan(0.09921875 * (p_microsteps/L))
     return angular_mrad
 
-  def diag_move_absolute(self, dev1,dev2,pos1,pos2,timeout=100):
+  def diag_move_absolute(self,pos1,pos2,timeout=100):
     """This produces a diagonal movement to absolute position set by the user.
     
     :param dev1: Motor 
@@ -61,11 +67,11 @@ class ZaberMirror:
     :return: None
     :rtype: None
     """
-    dev1.generic_command_no_response(CommandCode.MOVE_ABSOLUTE,pos1)
-    dev2.generic_command(CommandCode.MOVE_ABSOLUTE,pos2,timeout)
+    self.horizontal_device.generic_command_no_response(CommandCode.MOVE_ABSOLUTE,pos1)
+    self.elevation_device.generic_command(CommandCode.MOVE_ABSOLUTE,pos2,timeout)
     return None
   
-  def display_position(self, dev1,dev2):
+  def display_position(self, ):
     """This prints into the command line the position of devices
     
     :param dev1: Motor 
@@ -76,10 +82,10 @@ class ZaberMirror:
     :rtype: tuple
     """
     
-    print(dev1.get_position(),dev2.get_position())
-    return dev1.get_position(),dev2.get_position()
+    print(self.horizontal_device.get_position(),self.elevation_device.get_position())
+    return self.horizontal_device.get_position(),self.elevation_device.get_position()
   
-  def cross_move(self, dev1,dev2,bound=10000):
+  def cross_move(self,bound=10000):
     """cross move function allows us to make X movements with the laser. 
     :param: dev1: This would be a motor device
     :type dev1: Device
@@ -92,8 +98,8 @@ class ZaberMirror:
     NOTE use the microstep to angle to convert the bound to angle.
     TODO: Check if 1 absolute = 1 Microstep some modules have 1 abosulte set to 60 microsteps.
     """
-    dev1.move_absolute(0)
-    dev2.move_absolute(0)
+    self.horizontal_device.move_absolute(0)
+    self.elevation_device.move_absolute(0)
     bounding_box = [
       (bound,bound),
       (-bound,-bound),
@@ -101,14 +107,15 @@ class ZaberMirror:
       (-bound,bound),
     ]
     for vertix in bounding_box:
-      self.diag_move_absolute(dev1,dev2,vertix[0],vertix[1])
+      self.diag_move_absolute(vertix[0],vertix[1])
       time.sleep(0.2)
-      self.display_position(dev1,dev2)
-      self.diag_move_absolute(dev1,dev2,0,0)
+      self.display_position()
+      self.diag_move_absolute(0,0)
       time.sleep(0.2)
-      self.display_position(dev1,dev2)
+      self.display_position()
 
-  def connect_device(self,):    
+  def connect_device(self,):
+        
     with Connection.open_serial_port("/dev/ttyUSB0") as connection:
       """NOTE there is different spec for ASCII and Binary. We are using Binary"""
       device_list = connection.detect_devices()
@@ -120,7 +127,7 @@ class ZaberMirror:
       # device_HZ.home()
       device_EL.generic_command(CommandCode.SET_TARGET_SPEED,1000)
       device_HZ.generic_command(CommandCode.SET_TARGET_SPEED,1000)
-      self.diag_move_absolute(device_HZ,device_EL,1,0)
+      self.cross_move(device_HZ,device_EL,)
       
       # device_HZ.move_absolute(0)
       # device_EL.move_absolute(0)
@@ -160,7 +167,7 @@ class ZaberMirror:
     if 'POS' in data:
       if type(data['POS']) is tuple:
         print("DATA BEING RECIEVD:",data['POS'])
-        self.diag_move_absolute(self.horizontal_device, self.elevation_device, data['POS'][0],data['POS'][1])
+        self.diag_move_absolute(data['POS'][0],data['POS'][1])
       else:
         match data['POS']:
           case 'Zero':
@@ -172,7 +179,12 @@ class ZaberMirror:
             self.cross_move() 
     
 if __name__ == "__main__":
-  test_mirror = ZaberMirror()
-  test_mirror.connect_device()
+  zaber_port = "/dev/ttyUSB0"
+  with Connection.open_serial_port(zaber_port) as connection:
+    test_mirror = ZaberMirror(connection)
+    test_mirror.zero()
+    test_mirror.display_position()
+    test_mirror.home()
+    test_mirror.display_position()
 
 
