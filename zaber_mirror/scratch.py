@@ -12,4 +12,4 @@ def convert_microstep_to_angle(p_microsteps):
     angular_mrad = 1000*math.atan(0.09921875 * (p_microsteps/L))
     math.degrees(angular_mrad)
     return angular_mrad
-print(convert_microstep_to_angle(1))
+print(convert_microstep_to_angle(11727.0))

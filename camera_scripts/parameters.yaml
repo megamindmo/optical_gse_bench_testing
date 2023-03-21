@@ -2,7 +2,8 @@ focal_length: 0.0225
 pixel_length: 0.0000022
 total_pix_height: 1944
 total_pix_width: 2592
-image: "/home/mohamedm/Downloads/testlaserlight.bmp"
+image: "/home/mohamedm/Downloads/cengte.bmp"
+image_folder: "/home/mohamedm/Documents/Optical GSE/optical_gse_bench_testing/saved_images"
 
 
 

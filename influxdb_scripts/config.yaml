@@ -1,0 +1,4 @@
+bucket: 'quadcell'
+org: 'mo'
+url: 'https://us-east-1-1.aws.cloud2.influxdata.com'
+token: 'INFLUXDB_TOKEN=MDbet2Kz0OrFJQX0r4k_WOOu4IbftBamqmxXKKTRDysqFSKK9bxOU6cbPJgvuilk_IW1nXuzr9U_cjp9burtTw=='
